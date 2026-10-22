@@ -1,0 +1,18 @@
+workflows:
+  android-web-app:
+    name: Android Web App Build
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      android_signing:
+        - keystore_reference
+    scripts:
+      - name: Create Webview wrapper APK
+        script: |
+          echo "Building HTML5 App Package..."
+          mkdir -p public
+          cp -r * public/ || true
+    artifacts:
+      - public/**/*
+      - "*.apk"
+      
