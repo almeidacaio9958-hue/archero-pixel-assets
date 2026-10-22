@@ -8,6 +8,9 @@ workflows:
     scripts:
       - name: Prepare Web Folder & Build APK
         script: |
+          echo "Cleaning old gradle cache..."
+          rm -rf ~/.gradle/caches/
+          
           echo "Creating package.json and organizing files..."
           npm init -y
           
@@ -27,6 +30,7 @@ workflows:
           
           echo "Building APK via Gradle..."
           cd android
-          ./gradlew assembleDebug
+          ./gradlew clean assembleDebug
     artifacts:
       - android/app/build/outputs/apk/debug/*.apk
+      
