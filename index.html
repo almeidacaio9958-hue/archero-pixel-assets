@@ -3,30 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Archero Pixel Mobile - Vagas & Recompensas</title>
+    <title>Archero Pixel Mobile - Dungeon Edition</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #111;
+            background-color: #0d0d0d;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
             color: white;
-            font-family: Arial, sans-serif;
+            font-family: 'Courier New', Courier, monospace;
         }
         canvas {
-            background-color: #222;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            background-color: #1a1a1a;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
             touch-action: none;
+            width: 100%;
+            max-width: 400px;
+            height: auto;
         }
     </style>
 </head>
 <body>
 
-<canvas id="gameCanvas" width="360" height="640"></canvas>
+<canvas id="gameCanvas" width="400" height="650"></canvas>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
@@ -40,7 +43,8 @@ const nomesSprites = [
     "inimigo_demonio_chefe.png",
     "projetil_flecha.png",
     "item_moeda.png",
-    "item_bau_fechado.png"
+    "cenario_chao_pedra.png",
+    "cenario_parede_topo.png"
 ];
 
 nomesSprites.forEach(nome => {
@@ -48,18 +52,26 @@ nomesSprites.forEach(nome => {
     imagens[nome].src = nome;
 });
 
-// Estado Global do Jogo
+// Estado do Jogo
 let estadoJogo = "JOGANDO"; // "JOGANDO", "GAMEOVER", "VITORIA"
 let vagaAtual = 1;
 let moedasColetadas = 0;
 
-// Estado do Jogador
+// Limites da Arena (dentro das paredes)
+const arena = {
+    x: 30,
+    y: 80,
+    largura: 340,
+    altura: 520
+};
+
+// Jogador
 let jogador = {
-    x: 164,
-    y: 520,
-    largura: 32,
-    altura: 32,
-    velocidade: 3.5,
+    x: 184,
+    y: 480,
+    largura: 44,
+    altura: 44,
+    velocidade: 3.8,
     hpMax: 100,
     hp: 100,
     movendo: false
@@ -70,27 +82,26 @@ let projeteis = [];
 let moedas = [];
 let ultimoTiro = 0;
 
-// Controlo Touch
-let alvoX = jogador.x;
-let alvoY = jogador.y;
+// Controlo por Toque (Joystick Virtual / Direcional)
+let toqueX = 0;
+let toqueY = 0;
 let tocando = false;
 
-// Função para Iniciar uma Nova Vaga
 function iniciarVaga(vaga) {
     inimigos = [];
     projeteis = [];
     moedas = [];
 
     if (vaga === 1) {
-        inimigos.push({ x: 80, y: 100, largura: 32, altura: 32, velocidade: 1, hp: 50, hpMax: 50, tipo: "slime" });
-        inimigos.push({ x: 240, y: 100, largura: 32, altura: 32, velocidade: 1, hp: 50, hpMax: 50, tipo: "slime" });
+        inimigos.push({ x: 100, y: 150, largura: 48, altura: 48, velocidade: 1.2, hp: 60, hpMax: 60, tipo: "slime" });
+        inimigos.push({ x: 250, y: 150, largura: 48, altura: 48, velocidade: 1.2, hp: 60, hpMax: 60, tipo: "slime" });
     } else if (vaga === 2) {
-        inimigos.push({ x: 60, y: 80, largura: 32, altura: 32, velocidade: 1.2, hp: 60, hpMax: 60, tipo: "slime" });
-        inimigos.push({ x: 164, y: 120, largura: 32, altura: 32, velocidade: 1.2, hp: 60, hpMax: 60, tipo: "slime" });
-        inimigos.push({ x: 260, y: 80, largura: 32, altura: 32, velocidade: 1.2, hp: 60, hpMax: 60, tipo: "slime" });
+        inimigos.push({ x: 80, y: 140, largura: 48, altura: 48, velocidade: 1.4, hp: 80, hpMax: 80, tipo: "slime" });
+        inimigos.push({ x: 200, y: 180, largura: 48, altura: 48, velocidade: 1.4, hp: 80, hpMax: 80, tipo: "slime" });
+        inimigos.push({ x: 280, y: 140, largura: 48, altura: 48, velocidade: 1.4, hp: 80, hpMax: 80, tipo: "slime" });
     } else if (vaga === 3) {
-        // Vaga de Chefe
-        inimigos.push({ x: 148, y: 80, largura: 64, altura: 64, velocidade: 0.8, hp: 250, hpMax: 250, tipo: "chefe" });
+        // Chefe Demónio
+        inimigos.push({ x: 168, y: 150, largura: 64, altura: 64, velocidade: 0.9, hp: 300, hpMax: 300, tipo: "chefe" });
     }
 }
 
@@ -99,23 +110,22 @@ iniciarVaga(vagaAtual);
 // Eventos de Toque
 canvas.addEventListener("pointerdown", (e) => {
     if (estadoJogo === "GAMEOVER" || estadoJogo === "VITORIA") {
-        // Reiniciar Jogo ao Tocar na Tela
         vagaAtual = 1;
         moedasColetadas = 0;
         jogador.hp = 100;
-        jogador.x = 164;
-        jogador.y = 520;
+        jogador.x = 184;
+        jogador.y = 480;
         estadoJogo = "JOGANDO";
         iniciarVaga(1);
         return;
     }
     tocando = true;
-    atualizarDestino(e);
+    atualizarToque(e);
 });
 
 canvas.addEventListener("pointermove", (e) => {
     if (tocando && estadoJogo === "JOGANDO") {
-        atualizarDestino(e);
+        atualizarToque(e);
     }
 });
 
@@ -124,14 +134,15 @@ canvas.addEventListener("pointerup", () => {
     jogador.movendo = false;
 });
 
-function atualizarDestino(e) {
+function atualizarToque(e) {
     const rect = canvas.getBoundingClientRect();
-    alvoX = e.clientX - rect.left - jogador.largura / 2;
-    alvoY = e.clientY - rect.top - jogador.altura / 2;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    toqueX = (e.clientX - rect.left) * scaleX;
+    toqueY = (e.clientY - rect.top) * scaleY;
     jogador.movendo = true;
 }
 
-// Colisão AABB
 function verificarColisao(obj1, obj2) {
     return (
         obj1.x < obj2.x + obj2.largura &&
@@ -141,38 +152,40 @@ function verificarColisao(obj1, obj2) {
     );
 }
 
-// Loop de Lógica
+// Loop Principal
 function atualizar() {
     if (estadoJogo !== "JOGANDO") return;
 
-    // Movimentação do Jogador
+    // Movimentação fluida baseada no toque
     if (jogador.movendo) {
-        let dx = alvoX - jogador.x;
-        let dy = alvoY - jogador.y;
+        let centroX = jogador.x + jogador.largura / 2;
+        let centroY = jogador.y + jogador.altura / 2;
+        let dx = toqueX - centroX;
+        let dy = toqueY - centroY;
         let dist = Math.hypot(dx, dy);
 
-        if (dist > 3) {
+        if (dist > 5) {
             jogador.x += (dx / dist) * jogador.velocidade;
             jogador.y += (dy / dist) * jogador.velocidade;
-        } else {
-            jogador.movendo = false;
         }
     } else {
-        // Disparo Automático ao Parar
+        // Disparo Automático (Estilo Archero: para de andar, dispara flecha)
         let agora = Date.now();
-        if (agora - ultimoTiro > 600 && inimigos.length > 0) {
-            let inimigoAlvo = inimigos[0]; // Mira no primeiro inimigo da lista
-            if (inimigoAlvo) {
-                let centroX = inimigoAlvo.x + inimigoAlvo.largura / 2;
-                let centroY = inimigoAlvo.y + inimigoAlvo.altura / 2;
-                let ang = Math.atan2(centroY - (jogador.y + 16), centroX - (jogador.x + 16));
-                
+        if (agora - ultimoTiro > 550 && inimigos.length > 0) {
+            let alvo = inimigos[0];
+            if (alvo) {
+                let ax = alvo.x + alvo.largura / 2;
+                let ay = alvo.y + alvo.altura / 2;
+                let hx = jogador.x + jogador.largura / 2;
+                let hy = jogador.y + jogador.altura / 2;
+                let ang = Math.atan2(ay - hy, ax - hx);
+
                 projeteis.push({
-                    x: jogador.x + 12,
-                    y: jogador.y + 12,
-                    velX: Math.cos(ang) * 7,
-                    velY: Math.sin(ang) * 7,
-                    largura: 8,
+                    x: hx - 4,
+                    y: hy - 4,
+                    velX: Math.cos(ang) * 8,
+                    velY: Math.sin(ang) * 8,
+                    largura: 10,
                     altura: 16
                 });
                 ultimoTiro = agora;
@@ -180,30 +193,30 @@ function atualizar() {
         }
     }
 
-    // Limites da Tela para o Jogador
-    jogador.x = Math.max(0, Math.min(canvas.width - jogador.largura, jogador.x));
-    jogador.y = Math.max(0, Math.min(canvas.height - jogador.altura, jogador.y));
+    // Restringir Jogador dentro da Arena
+    jogador.x = Math.max(arena.x, Math.min(arena.x + arena.largura - jogador.largura, jogador.x));
+    jogador.y = Math.max(arena.y, Math.min(arena.y + arena.altura - jogador.altura, jogador.y));
 
-    // Movimento e Colisão dos Inimigos
+    // Inimigos perseguem o jogador
     for (let i = inimigos.length - 1; i >= 0; i--) {
-        let monstro = inimigos[i];
-        let centroJogX = jogador.x + jogador.largura / 2;
-        let centroJogY = jogador.y + jogador.altura / 2;
-        let centroMonX = monstro.x + monstro.largura / 2;
-        let centroMonY = monstro.y + monstro.altura / 2;
+        let m = inimigos[i];
+        let mx = m.x + m.largura / 2;
+        let my = m.y + m.altura / 2;
+        let jx = jogador.x + jogador.largura / 2;
+        let jy = jogador.y + jogador.altura / 2;
 
-        let dx = centroJogX - centroMonX;
-        let dy = centroJogY - centroMonY;
+        let dx = jx - mx;
+        let dy = jy - my;
         let dist = Math.hypot(dx, dy);
 
-        if (dist > 0) {
-            monstro.x += (dx / dist) * monstro.velocidade;
-            monstro.y += (dy / dist) * monstro.velocidade;
+        if (dist > 2) {
+            m.x += (dx / dist) * m.velocidade;
+            m.y += (dy / dist) * m.velocidade;
         }
 
-        // Colisão Inimigo x Jogador (Causa Dano)
-        if (verificarColisao(monstro, jogador)) {
-            jogador.hp -= 0.3;
+        // Dano ao jogador
+        if (verificarColisao(m, jogador)) {
+            jogador.hp -= 0.4;
             if (jogador.hp <= 0) {
                 jogador.hp = 0;
                 estadoJogo = "GAMEOVER";
@@ -217,27 +230,24 @@ function atualizar() {
         p.x += p.velX;
         p.y += p.velY;
 
-        // Fora da Tela
-        if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+        if (p.x < arena.x || p.x > arena.x + arena.largura || p.y < arena.y || p.y > arena.y + arena.altura) {
             projeteis.splice(i, 1);
             continue;
         }
 
         // Colisão Flecha x Inimigo
         for (let j = inimigos.length - 1; j >= 0; j--) {
-            let monstro = inimigos[j];
-            if (verificarColisao(p, monstro)) {
-                monstro.hp -= 25;
+            let m = inimigos[j];
+            if (verificarColisao(p, m)) {
+                m.hp -= 30;
                 projeteis.splice(i, 1);
 
-                // Morte do Monstro
-                if (monstro.hp <= 0) {
-                    // Criar Moeda no local da morte
+                if (m.hp <= 0) {
                     moedas.push({
-                        x: monstro.x + monstro.largura / 4,
-                        y: monstro.y + monstro.altura / 4,
-                        largura: 16,
-                        altura: 16
+                        x: m.x + m.largura / 3,
+                        y: m.y + m.altura / 3,
+                        largura: 20,
+                        altura: 20
                     });
                     inimigos.splice(j, 1);
                 }
@@ -249,12 +259,12 @@ function atualizar() {
     // Coleta de Moedas
     for (let i = moedas.length - 1; i >= 0; i--) {
         if (verificarColisao(jogador, moedas[i])) {
-            moedasColetadas += 10;
+            moedasColetadas += 15;
             moedas.splice(i, 1);
         }
     }
 
-    // Avanço de Vaga / Vitória
+    // Avançar Vaga
     if (inimigos.length === 0 && moedas.length === 0) {
         if (vagaAtual < 3) {
             vagaAtual++;
@@ -265,19 +275,65 @@ function atualizar() {
     }
 }
 
-// Renderização Gráfica
+// Desenhar Elementos
 function desenhar() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Fundo da Masmorra (Chão de Pedra em mosaico)
+    let imgChao = imagens["cenario_chao_pedra.png"];
+    if (imgChao && imgChao.complete) {
+        let patW = 64, patH = 64;
+        for (let x = arena.x; x < arena.x + arena.largura; x += patW) {
+            for (let y = arena.y; y < arena.y + arena.altura; y += patH) {
+                ctx.drawImage(imgChao, x, y, patW, patH);
+            }
+        }
+    } else {
+        ctx.fillStyle = "#332211";
+        ctx.fillRect(arena.x, arena.y, arena.largura, arena.altura);
+    }
+
+    // Paredes da Masmorra
+    let imgParede = imagens["cenario_parede_topo.png"];
+    if (imgParede && imgParede.complete) {
+        ctx.drawImage(imgParede, 0, 0, canvas.width, 80);
+    } else {
+        ctx.fillStyle = "#4a3b32";
+        ctx.fillRect(0, 0, canvas.width, 80);
+    }
+
+    // Moldura / Borda da Arena
+    ctx.strokeStyle = "#ffcc00";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(arena.x, arena.y, arena.largura, arena.altura);
+
     // Desenhar Moedas
     moedas.forEach(m => {
-        let imgMoeda = imagens["item_moeda.png"];
-        if (imgMoeda && imgMoeda.complete) {
-            ctx.drawImage(imgMoeda, m.x, m.y, m.largura, m.altura);
+        let imgM = imagens["item_moeda.png"];
+        if (imgM && imgM.complete) {
+            ctx.drawImage(imgM, m.x, m.y, m.largura, m.altura);
         } else {
             ctx.fillStyle = "gold";
             ctx.fillRect(m.x, m.y, m.largura, m.altura);
         }
+    });
+
+    // Desenhar Inimigos
+    inimigos.forEach(m => {
+        let sprite = m.tipo === "chefe" ? "inimigo_demonio_chefe.png" : "inimigo_slime.png";
+        let imgM = imagens[sprite];
+        if (imgM && imgM.complete) {
+            ctx.drawImage(imgM, m.x, m.y, m.largura, m.altura);
+        } else {
+            ctx.fillStyle = m.tipo === "chefe" ? "purple" : "lime";
+            ctx.fillRect(m.x, m.y, m.largura, m.altura);
+        }
+
+        // Barra de Vida Inimigo
+        ctx.fillStyle = "black";
+        ctx.fillRect(m.x, m.y - 8, m.largura, 5);
+        ctx.fillStyle = "red";
+        ctx.fillRect(m.x, m.y - 8, (m.hp / m.hpMax) * m.largura, 5);
     });
 
     // Desenhar Jogador
@@ -289,77 +345,57 @@ function desenhar() {
         ctx.fillRect(jogador.x, jogador.y, jogador.largura, jogador.altura);
     }
 
-    // Barra de Vida do Jogador
-    ctx.fillStyle = "red";
-    ctx.fillRect(jogador.x, jogador.y - 8, jogador.largura, 4);
+    // Barra de Vida Jogador
+    ctx.fillStyle = "black";
+    ctx.fillRect(jogador.x, jogador.y - 10, jogador.largura, 6);
     ctx.fillStyle = "lime";
-    ctx.fillRect(jogador.x, jogador.y - 8, (jogador.hp / jogador.hpMax) * jogador.largura, 4);
-
-    // Desenhar Inimigos
-    inimigos.forEach(monstro => {
-        let spriteNome = monstro.tipo === "chefe" ? "inimigo_demonio_chefe.png" : "inimigo_slime.png";
-        let imgMonstro = imagens[spriteNome];
-
-        if (imgMonstro && imgMonstro.complete) {
-            ctx.drawImage(imgMonstro, monstro.x, monstro.y, monstro.largura, monstro.altura);
-        } else {
-            ctx.fillStyle = monstro.tipo === "chefe" ? "purple" : "lime";
-            ctx.fillRect(monstro.x, monstro.y, monstro.largura, monstro.altura);
-        }
-
-        // Barra de Vida do Inimigo
-        ctx.fillStyle = "black";
-        ctx.fillRect(monstro.x, monstro.y - 6, monstro.largura, 4);
-        ctx.fillStyle = "crimson";
-        ctx.fillRect(monstro.x, monstro.y - 6, (monstro.hp / monstro.hpMax) * monstro.largura, 4);
-    });
+    ctx.fillRect(jogador.x, jogador.y - 10, (jogador.hp / jogador.hpMax) * jogador.largura, 6);
 
     // Desenhar Flechas
     projeteis.forEach(p => {
-        let imgFlecha = imagens["projetil_flecha.png"];
-        if (imgFlecha && imgFlecha.complete) {
-            ctx.drawImage(imgFlecha, p.x, p.y, p.largura, p.altura);
+        let imgF = imagens["projetil_flecha.png"];
+        if (imgF && imgF.complete) {
+            ctx.drawImage(imgF, p.x, p.y, p.largura, p.altura);
         } else {
             ctx.fillStyle = "yellow";
             ctx.fillRect(p.x, p.y, p.largura, p.altura);
         }
     });
 
-    // HUD (Interface)
-    ctx.fillStyle = "white";
-    ctx.font = "bold 16px Arial";
-    ctx.fillText("Vaga: " + vagaAtual + "/3", 15, 30);
-    ctx.fillText("Moedas: " + moedasColetadas, 230, 30);
+    // HUD / Topo
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 18px 'Courier New'";
+    ctx.fillText("VAGA: " + vagaAtual + "/3", 25, 45);
+    ctx.fillText("MOEDAS: " + moedasColetadas, 230, 45);
 
     // Ecrãs Finais
     if (estadoJogo === "GAMEOVER") {
-        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillStyle = "rgba(0,0,0,0.85)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "red";
-        ctx.font = "bold 32px Arial";
+        ctx.fillStyle = "#ff3333";
+        ctx.font = "bold 36px 'Courier New'";
         ctx.textAlign = "center";
         ctx.fillText("GAME OVER", canvas.width / 2, 280);
         ctx.fillStyle = "white";
-        ctx.font = "16px Arial";
-        ctx.fillText("Toca no ecrã para reiniciar", canvas.width / 2, 330);
+        ctx.font = "16px 'Courier New'";
+        ctx.fillText("Toque no ecrã para tentar de novo", canvas.width / 2, 330);
         ctx.textAlign = "left";
     } else if (estadoJogo === "VITORIA") {
-        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillStyle = "rgba(0,0,0,0.85)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "gold";
-        ctx.font = "bold 32px Arial";
+        ctx.fillStyle = "#ffcc00";
+        ctx.font = "bold 36px 'Courier New'";
         ctx.textAlign = "center";
         ctx.fillText("VITÓRIA!", canvas.width / 2, 260);
         ctx.fillStyle = "white";
-        ctx.font = "18px Arial";
-        ctx.fillText("Moedas Totais: " + moedasColetadas, canvas.width / 2, 300);
-        ctx.font = "14px Arial";
-        ctx.fillText("Toca no ecrã para jogar de novo", canvas.width / 2, 350);
+        ctx.font = "18px 'Courier New'";
+        ctx.fillText("Moedas Totais: " + moedasColetadas, canvas.width / 2, 310);
+        ctx.font = "14px 'Courier New'";
+        ctx.fillText("Toque para jogar novamente", canvas.width / 2, 360);
         ctx.textAlign = "left";
     }
 }
 
-// Game Loop
 function loop() {
     atualizar();
     desenhar();
