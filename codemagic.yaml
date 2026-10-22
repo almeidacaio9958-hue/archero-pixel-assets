@@ -8,7 +8,7 @@ workflows:
     scripts:
       - name: Prepare Web Folder & Build APK
         script: |
-          echo "Cleaning old gradle cache..."
+          echo "Cleaning gradle cache..."
           rm -rf ~/.gradle/caches/
           
           echo "Creating package.json and organizing files..."
@@ -18,8 +18,8 @@ workflows:
           cp index.html www/
           cp *.png www/ || true
           
-          echo "Installing Capacitor dependencies..."
-          npm install @capacitor/cli @capacitor/core @capacitor/android
+          echo "Installing Capacitor v5 dependencies..."
+          npm install @capacitor/cli@5.7.4 @capacitor/core@5.7.4 @capacitor/android@5.7.4
           
           echo "Initializing Capacitor..."
           npx cap init "Archero Pixel" "com.archero.pixelgame" --web-dir www
@@ -30,7 +30,6 @@ workflows:
           
           echo "Building APK via Gradle..."
           cd android
-          ./gradlew clean assembleDebug
+          ./gradlew assembleDebug --no-daemon
     artifacts:
       - android/app/build/outputs/apk/debug/*.apk
-      
