@@ -6,22 +6,27 @@ workflows:
     environment:
       node: 18
     scripts:
-      - name: Install Ionic Capacitor & Build APK
+      - name: Prepare Web Folder & Build APK
         script: |
-          echo "Setting up Capacitor Android wrapper..."
-          npm install -g @capacitor/cli @capacitor/core
-          npm init -y
-          npm install @capacitor/core @capacitor/android
+          echo "Organizing files for Capacitor..."
+          mkdir -p www
+          # Copiar o index.html e os sprites para a pasta www
+          cp index.html www/
+          cp *.png www/ || true
           
-          # Inicializar Capacitor
-          npx cap init "Archero Pixel" "com.archero.pixelgame" --web-dir .
+          # Instalar dependências do Capacitor
+          npm install @capacitor/cli @capacitor/core @capacitor/android
           
-          # Adicionar e preparar plataforma Android
+          # Inicializar o Capacitor apontando para a pasta www
+          npx cap init "Archero Pixel" "com.archero.pixelgame" --web-dir www
+          
+          # Adicionar plataforma Android e sincronizar
           npx cap add android
           npx cap sync android
           
-          # Compilar o APK via Gradle
+          # Compilar o APK
           cd android
           ./gradlew assembleDebug
     artifacts:
       - android/app/build/outputs/apk/debug/*.apk
+      
