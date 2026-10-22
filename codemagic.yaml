@@ -1,15 +1,27 @@
 workflows:
-  android-web-app:
-    name: Android Web App Build
+  android-apk-build:
+    name: Build Android APK
     max_build_duration: 30
     instance_type: mac_mini_m1
+    environment:
+      node: 18
     scripts:
-      - name: Preparing Web Artifacts
+      - name: Install Ionic Capacitor & Build APK
         script: |
-          echo "Packing HTML5 Game files..."
-          mkdir -p output
-          cp -r * output/ || true
+          echo "Setting up Capacitor Android wrapper..."
+          npm install -g @capacitor/cli @capacitor/core
+          npm init -y
+          npm install @capacitor/core @capacitor/android
+          
+          # Inicializar Capacitor
+          npx cap init "Archero Pixel" "com.archero.pixelgame" --web-dir .
+          
+          # Adicionar e preparar plataforma Android
+          npx cap add android
+          npx cap sync android
+          
+          # Compilar o APK via Gradle
+          cd android
+          ./gradlew assembleDebug
     artifacts:
-      - output/**/*
-      - "*.apk"
-      
+      - android/app/build/outputs/apk/debug/*.apk
