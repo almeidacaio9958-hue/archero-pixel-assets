@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Archero Pixel Mobile</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background-color: #222;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="360" height="640"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Carregar Sprites do Repositório
+const imagens = {};
+const nomesSprites = [
+    "heroi_arqueiro.png", 
+    "inimigo_slime.png", 
+    "projetil_flecha.png",
+    "cenario_chao_pedra.png"
+];
+
+nomesSprites.forEach(nome => {
+    imagens[nome] = new Image();
+    imagens[nome].src = nome; // Como estão na mesma pasta no GitHub, o nome direto funciona
+});
+
+// Estado do Jogo
+let jogador = {
+    x: 160,
+    y: 500,
+    largura: 32,
+    altura: 32,
+    velocidade: 3,
+    hp: 100,
+    movendo: false
+};
+
+let inimigos = [
+    { x: 100, y: 100, largura: 32, altura: 32, velocidade: 1, hp: 50, vivo: true },
+    { x: 220, y: 100, largura: 32, altura: 32, velocidade: 1, hp: 50, vivo: true }
+];
+
+let projeteis = [];
+let ultimoTiro = 0;
+
+// Controlo por Touch / Rasto no Ecrã
+let alvoX = jogador.x;
+let alvoY = jogador.y;
+let tocando = false;
+
+canvas.addEventListener("pointerdown", (e) => {
+    tocando = true;
+    atualizarDestino(e);
+});
+
+canvas.addEventListener("pointermove", (e) => {
+    if (tocando) {
+        atualizarDestino(e);
+    }
+});
+
+canvas.addEventListener("pointerup", () => {
+    tocando = false;
+    jogador.movendo = false;
+});
+
+function atualizarDestino(e) {
+    const rect = canvas.getBoundingClientRect();
+    alvoX = e.clientX - rect.left - jogador.largura / 2;
+    alvoY = e.clientY - rect.top - jogador.altura / 2;
+    jogador.movendo = true;
+}
+
+// Colisão AABB
+function verificarColisao(obj1, obj2) {
+    return (
+        obj1.x < obj2.x + obj2.largura &&
+        obj1.x + obj1.largura > obj2.x &&
+        obj1.y < obj2.y + obj2.altura &&
+        obj1.y + obj1.altura > obj2.y
+    );
+}
+
+// Atualizar Lógica
+function atualizar() {
+    // Movimento do Jogador em direção ao toque
+    if (jogador.movendo) {
+        let dx = alvoX - jogador.x;
+        let dy = alvoY - jogador.y;
+        let dist = Math.hypot(dx, dy);
+
+        if (dist > 2) {
+            jogador.x += (dx / dist) * jogador.velocidade;
+            jogador.y += (dy / dist) * jogador.velocidade;
+        } else {
+            jogador.movendo = false;
+        }
+    } else {
+        // Estilo Archero: Se parado, dispara automaticamente contra o inimigo mais próximo
+        let agora = Date.now();
+        if (agora - ultimoTiro > 800 && inimigos.length > 0) {
+            let inimigoAlvo = inimigos.find(i => i.vivo);
+            if (inimigoAlvo) {
+                let ang = Math.atan2(inimigoAlvo.y - jogador.y, inimigoAlvo.x - jogador.x);
+                projeteis.push({
+                    x: jogador.x + 12,
+                    y: jogador.y + 12,
+                    velX: Math.cos(ang) * 6,
+                    velY: Math.sin(ang) * 6,
+                    largura: 8,
+                    altura: 16
+                });
+                ultimoTiro = agora;
+            }
+        }
+    }
+
+    // Movimentação dos Inimigos (Perseguição)
+    inimigos.forEach(inimigo => {
+        if (inimigo.vivo) {
+            if (inimigo.x < jogador.x) inimigo.x += inimigo.velocidade;
+            if (inimigo.x > jogador.x) inimigo.x -= inimigo.velocidade;
+            if (inimigo.y < jogador.y) inimigo.y += inimigo.velocidade;
+            if (inimigo.y > jogador.y) inimigo.y -= inimigo.velocidade;
+        }
+    });
+
+    // Atualizar Projéteis
+    for (let i = projeteis.length - 1; i >= 0; i--) {
+        let p = projeteis[i];
+        p.x += p.velX;
+        p.y += p.velY;
+
+        // Remover se sair da tela
+        if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+            projeteis.splice(i, 1);
+            continue;
+        }
+
+        // Colisão com Inimigos
+        for (let j = 0; j < inimigos.length; j++) {
+            let inimigo = inimigos[j];
+            if (inimigo.vivo && verificarColisao(p, inimigo)) {
+                inimigo.hp -= 25;
+                if (inimigo.hp <= 0) {
+                    inimigo.vivo = false;
+                }
+                projeteis.splice(i, 1);
+                break;
+            }
+        }
+    }
+}
+
+// Desenhar na Tela
+function desenhar() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Desenhar Jogador
+    let imgHeroi = imagens["heroi_arqueiro.png"];
+    if (imgHeroi && imgHeroi.complete) {
+        ctx.drawImage(imgHeroi, jogador.x, jogador.y, jogador.largura, jogador.altura);
+    } else {
+        ctx.fillStyle = "cyan";
+        ctx.fillRect(jogador.x, jogador.y, jogador.largura, jogador.altura);
+    }
+
+    // Desenhar Inimigos
+    inimigos.forEach(inimigo => {
+        if (inimigo.vivo) {
+            let imgSlime = imagens["inimigo_slime.png"];
+            if (imgSlime && imgSlime.complete) {
+                ctx.drawImage(imgSlime, inimigo.x, inimigo.y, inimigo.largura, inimigo.altura);
+            } else {
+                ctx.fillStyle = "lime";
+                ctx.fillRect(inimigo.x, inimigo.y, inimigo.largura, inimigo.altura);
+            }
+        }
+    });
+
+    // Desenhar Projéteis
+    projeteis.forEach(p => {
+        let imgFlecha = imagens["projetil_flecha.png"];
+        if (imgFlecha && imgFlecha.complete) {
+            ctx.drawImage(imgFlecha, p.x, p.y, p.largura, p.altura);
+        } else {
+            ctx.fillStyle = "yellow";
+            ctx.fillRect(p.x, p.y, p.largura, p.altura);
+        }
+    });
+
+    // HUD (HP)
+    ctx.fillStyle = "white";
+    ctx.font = "16px Arial";
+    ctx.fillText("HP: " + jogador.hp, 20, 30);
+}
+
+// Loop Principal do Jogo
+function loop() {
+    atualizar();
+    desenhar();
+    requestAnimationFrame(loop);
+}
+
+// Iniciar quando carregar
+loop();
+</script>
+
+</body>
+</html>
